@@ -1,9 +1,9 @@
 #include <SFML/Graphics.hpp>
-#include <entt/entt.hpp>
-#include<vector>
-#include<string>
+//#include <entt/entt.hpp>
+#include <vector>
+#include <string>
 #include <sstream>
-#include<iostream>
+#include <iostream>
 
 
 struct BoardProp{
@@ -45,10 +45,6 @@ std::string Board_Drawer(BoardProp boad){
 		map += boad.edge_side + '\n';
 
 	return map;
-};
-
-class BoardDrawer{
-
 };
 
 int main()
