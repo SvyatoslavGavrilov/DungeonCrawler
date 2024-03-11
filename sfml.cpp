@@ -3,6 +3,7 @@
 #include <vector>
 #include <string>
 #include <sstream>
+#include <fstream>
 #include <iostream>
 
 
@@ -13,65 +14,89 @@ struct BoardProp{
 	std::string edge_td;
 };
 
+struct IniSettings{
+	int dim_x;
+	int dim_y;
+	std::string edge_side;
+	std::string edge_td;
+	short font_size;
+};
+
+IniSettings IniDownloader(std::string filename){
+	IniSettings settings;
+	std::ifstream stngs_strm(filename);
+	stngs_strm
+	>> settings.dim_x
+	>> settings.dim_y
+	>> settings.edge_side
+	>> settings.edge_td
+	>> settings.font_size
+	;
+	stngs_strm.close();
+	return settings;
+}
 
 
-
-
-std::string Board_Drawer(BoardProp boad){
+std::string Board_Drawer(BoardProp boad, bool count=0){
 	std::string map;
 	map += boad.edge_side;
 	for(int i=0; i<boad.dim_x; i++)map += boad.edge_td;
-	/*
-	map += [](const char str, int times)
-			{std::stringstream stream; for (int i = 0; i < times; i++) stream << str; return stream.str();}
-	('#', dims.dim_x);
-	*/
 	map += boad.edge_side + "\n";
 	for(int y=0; y<boad.dim_y; y++){
 		map += boad.edge_side;
 		map += [](const char str, int times)
 					{std::stringstream stream; for (int i = 0; i < times; i++) stream << str; return stream.str();}
 		('.', boad.dim_x);
-		map += boad.edge_side + "\n";
+
+		std::string line_num;
+		line_num += [](bool c, int n){
+			std::stringstream conv;
+			if(c)conv<<n+1;
+			return conv.str();}(count, y);
+
+		map += boad.edge_side + line_num + "\n";
 	}
 
 	map += boad.edge_side;
 		for(int i=0; i<boad.dim_x; i++)map += boad.edge_td;
-		/*
-		map += [](const char str, int times)
-				{std::stringstream stream; for (int i = 0; i < times; i++) stream << str; return stream.str();}
-		('#', dims.dim_x);
-		*/
 		map += boad.edge_side + '\n';
 
 	return map;
 };
 
+
+
+
 int main()
 {
-
     sf::RenderWindow window(sf::VideoMode(1080,760), "Hello World");
 
     BoardProp board;
 
-    board.dim_x = 40;
-    board.dim_y = 16;
-    board.edge_side = "%";
-    board.edge_td = '%';
+    // Load settings
+    IniSettings settings = IniDownloader("stngs.ini");
 
-    std::cout<<Board_Drawer(board);
+    board.dim_x = settings.dim_x;
+    board.dim_y = settings.dim_y;
+    board.edge_side = settings.edge_side;
+    board.edge_td = settings.edge_td;
 
 
+    // Load font from fonts/
     sf::Font font;
     font.loadFromFile("fonts/1942.ttf");
     sf::Text text;
     text.setFont(font);
 
-    text.setString(Board_Drawer(board));
 
-    text.setCharacterSize(24);
+    //setting text
+
+    text.setString(Board_Drawer(board, 1));
+    text.setCharacterSize(settings.font_size);
+
     text.setFillColor(sf::Color::Red);
-    //text.setStyle(sf::Text::Bold | sf::Text::Underlined);
+
+    //window.display();
 
     while (window.isOpen())
     {
@@ -85,6 +110,7 @@ int main()
         window.clear();
         window.draw(text);
         window.display();
+
     }
 
     return 0;
