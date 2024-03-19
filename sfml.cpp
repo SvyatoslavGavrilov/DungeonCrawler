@@ -102,7 +102,11 @@ class Board{
 
 int main()
 {
-    sf::RenderWindow window(sf::VideoMode(1080,760), "Hello World");
+
+	sf::Clock ticker;
+    sf::RenderWindow window(sf::VideoMode(1080,760), "Piterne te manna");
+
+    window.setFramerateLimit(30);
 
     BoardProp brd_stngs;
 
@@ -133,11 +137,10 @@ int main()
 
     text.setFillColor(sf::Color::Red);
 
-
-
-
+    //sf::Time tick = ticker.restart();
     while (window.isOpen())
     {
+
         sf::Event event;
         while (window.pollEvent(event))
         {
@@ -148,6 +151,7 @@ int main()
         window.clear();
         window.draw(text);
         window.display();
+
 
     }
 
