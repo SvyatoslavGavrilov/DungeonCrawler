@@ -5,13 +5,22 @@
 #include <sstream>
 #include <fstream>
 #include <iostream>
-
+#include <memory>
+#include <thread>
+#include <chrono>
 
 struct BoardProp{
 	int dim_x;
 	int dim_y;
 	std::string edge_side;
 	std::string edge_td;
+};
+
+struct mvd{
+	short x;
+	short y;
+	short xd;
+	short yd;
 };
 
 struct IniSettings{
@@ -23,20 +32,42 @@ struct IniSettings{
 	std::string font;
 };
 
-IniSettings IniDownloader(std::string filename){
-	IniSettings settings;
-	std::ifstream stngs_strm(filename);
-	stngs_strm
-	>> settings.dim_x
-	>> settings.dim_y
-	>> settings.edge_side
-	>> settings.edge_td
-	>> settings.font_size
-	>> settings.font
-	;
-	stngs_strm.close();
-	return settings;
-}
+class Player{
+	short x;
+	short y;
+	char symb;
+public:
+	Player(char symbol){
+		x = 0;
+		y = 0;
+		symb = symbol;
+	}
+
+	~Player(){}
+
+	mvd move(short int dx, short int dy){
+		mvd delta{x, y, dx, dy};
+		x += dx;
+		y += dy;
+		return delta;
+	}
+
+	sf::Vector2i get_pos(){
+		return sf::Vector2i(x,y);
+	}
+
+	short get_x(){
+		return x;
+	}
+	short get_y(){
+		return y;
+	}
+	char get_symb(){
+		return symb;
+	}
+
+};
+
 
 class Board{
 
@@ -61,14 +92,7 @@ class Board{
 		map += stngs.edge_side + "\n";
 		for(int y=0; y<stngs.dim_y; y++){
 			map += stngs.edge_side;
-
-			/*map += [](const char str, int times)
-						{std::stringstream stream; for (int i = 0; i < times; i++) stream << str; return stream.str();}
-			('.', stngs.dim_x);
-			*/
-
 			map += brd[y];
-
 			std::string line_num;
 			line_num += [](bool c, int n){
 				std::stringstream conv;
@@ -85,14 +109,37 @@ class Board{
 		return map;
 	};
 
-	void set(char sym, int x, int y){
+	void set(char sym, short x, short y){
 
 		brd[y][x] = sym;
 
 	}
 
+	char get_from(short x, short y){
+		return brd[y][x];
+	}
+	/*
+	void push(char sym, short x, short y, short dx, short dy = 0){
+		this->set(' ',x,y);
+		this->set(sym, x+dx, y+dy);
+	}*/
+
+	void move(short x, short y, short dx, short dy){
+		char buffer = this->get_from(x, y);
+		this->set(this->get_from(x+dx, y+dy), x, y);
+		this->set(buffer, x+dx, y + dy);
+	}
+
+	void move(mvd mvd){
+		this->move(mvd.x, mvd.y, mvd.xd, mvd.yd);
+	}
+
 	void reset_stngs(BoardProp stngs){
 		this->stngs = stngs;
+	}
+
+	void place(Player player){
+		this->set(player.get_symb(), player.get_x(), player.get_y());
 	}
 
 };
@@ -100,47 +147,48 @@ class Board{
 
 
 
+IniSettings IniDownloader(std::string filename){
+	IniSettings settings;
+	std::ifstream stngs_strm(filename);
+	stngs_strm
+	>> settings.dim_x
+	>> settings.dim_y
+	>> settings.edge_side
+	>> settings.edge_td
+	>> settings.font_size
+	>> settings.font
+	;
+	stngs_strm.close();
+	return settings;
+}
+
+void test(){
+	sf::Texture eye;
+	eye.loadFromFile("lol.png");
+	//sf::Sprite sprt(eye);
+	auto cwindw = sf::VideoMode::getDesktopMode();
+	std::vector<sf::RenderWindow*> wind_lst;
+	for(short i=0;i<10;i++){
+		sf::RenderWindow* wnd = new sf::RenderWindow(sf::VideoMode(512,512),"(0)");
+		wnd->setPosition(sf::Vector2i(std::rand()%(cwindw.width - 512), std::rand()%(cwindw.height - 512)));
+		wind_lst.push_back(wnd);
+		wnd->draw(sf::Sprite(eye));
+		wnd->display();
+	}
+	std::this_thread::sleep_for(std::chrono::milliseconds(500));
+	for(short i=0;i<10;i++)delete wind_lst[i];
+}
+
 int main()
 {
 
 	sf::Clock ticker;
-    sf::RenderWindow window(sf::VideoMode(1080,760), "Piterne te manna");
+    sf::RenderWindow window(sf::VideoMode(512,512), "Piterne te manna");
 
     window.setFramerateLimit(30);
 
-    BoardProp brd_stngs;
-
-    // Load settings
-    IniSettings settings = IniDownloader("stngs.ini");
-
-    brd_stngs.dim_x = settings.dim_x;
-    brd_stngs.dim_y = settings.dim_y;
-    brd_stngs.edge_side = settings.edge_side;
-    brd_stngs.edge_td = settings.edge_td;
-
-
-    // Load font from fonts/
-    sf::Font font;
-    font.loadFromFile(settings.font);
-    sf::Text text;
-    text.setFont(font);
-
-    Board brd(brd_stngs); //create Board class (class containing what is displayed);
-
-    brd.set('A', 1, 1);
-    brd.set('B', 2, 1);
-    brd.set('C', 4, 4);
-
-    //get things drawn
-    text.setString(brd.Board_Drawer());
-    text.setCharacterSize(settings.font_size);
-
-    text.setFillColor(sf::Color::Red);
-
-    //sf::Time tick = ticker.restart();
     while (window.isOpen())
     {
-
         sf::Event event;
         while (window.pollEvent(event))
         {
@@ -148,10 +196,10 @@ int main()
                 window.close();
         }
 
-        window.clear();
-        window.draw(text);
-        window.display();
+        if(sf::Keyboard::isKeyPressed(sf::Keyboard::S))test();
 
+        window.clear();
+        window.display();
 
     }
 
