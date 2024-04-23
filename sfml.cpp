@@ -9,13 +9,6 @@
 #include <thread>
 #include <chrono>
 
-struct BoardProp{
-	int dim_x;
-	int dim_y;
-	std::string edge_side;
-	std::string edge_td;
-};
-
 struct mvd{
 	short x;
 	short y;
@@ -31,6 +24,22 @@ struct IniSettings{
 	short font_size;
 	std::string font;
 };
+
+
+IniSettings IniDownloader(std::string filename){
+	IniSettings settings;
+	std::ifstream stngs_strm(filename);
+	stngs_strm
+	>> settings.dim_x
+	>> settings.dim_y
+	>> settings.edge_side
+	>> settings.edge_td
+	>> settings.font_size
+	>> settings.font
+	;
+	stngs_strm.close();
+	return settings;
+}
 
 class Player{
 	short x;
@@ -68,116 +77,75 @@ public:
 
 };
 
+class Screamer{
+	unsigned short times;
+	std::string pic{"lol.png"};
+	sf::Vector2i res{512,512};
 
-class Board{
+public:
+	Screamer(unsigned short times, std::string pic, sf::Vector2i res, bool flg=0){
+		this->times = times;
+		this->pic = pic;
+		this->res = res;
+		if(flg)boo();
+	}
 
-	BoardProp stngs;
-	std::vector<std::string> brd;
+	Screamer(bool flg=0){if(flg)boo();
+	times = 10;}
+	Screamer(unsigned short times, bool flg=0){if(flg)boo();this->times = times;}
 
-	public:
-
-	Board (BoardProp boad){
-		stngs = boad;
-		for(int i = 0; i<stngs.dim_y; i++){
-			std::string str="";
-			for(int j = 0; j<stngs.dim_x; j++)str+=" ";
-			brd.push_back(str);
+	void boo(){
+		sf::Texture eye;
+		eye.loadFromFile(pic);
+		auto cwindw = sf::VideoMode::getDesktopMode();
+		std::vector<sf::RenderWindow*> wind_lst;
+		for(unsigned int i=0;i<times;i++){
+			sf::RenderWindow* wnd = new sf::RenderWindow(sf::VideoMode(res.x, res.y),"(0)");
+			wnd->setPosition(sf::Vector2i(std::rand()%(cwindw.width - res.x), std::rand()%(cwindw.height - res.y)));
+			wind_lst.push_back(wnd);
+			//wnd->setView(sf::View());
+			wnd->draw(sf::Sprite(eye));
+			wnd->display();
 		}
+		std::this_thread::sleep_for(std::chrono::milliseconds(512));
+		for(unsigned int i=0;i<times;i++)delete wind_lst[i];
 	}
-
-	std::string Board_Drawer(bool count=0){
-		std::string map;
-		map += stngs.edge_side;
-		for(int i=0; i<stngs.dim_x; i++)map += stngs.edge_td;
-		map += stngs.edge_side + "\n";
-		for(int y=0; y<stngs.dim_y; y++){
-			map += stngs.edge_side;
-			map += brd[y];
-			std::string line_num;
-			line_num += [](bool c, int n){
-				std::stringstream conv;
-				if(c)conv<<n+1;
-				return conv.str();}(count, y);
-
-			map += stngs.edge_side + line_num + "\n";
-		}
-
-		map += stngs.edge_side;
-			for(int i=0; i<stngs.dim_x; i++)map += stngs.edge_td;
-			map += stngs.edge_side + '\n';
-
-		return map;
-	};
-
-	void set(char sym, short x, short y){
-
-		brd[y][x] = sym;
-
-	}
-
-	char get_from(short x, short y){
-		return brd[y][x];
-	}
-	/*
-	void push(char sym, short x, short y, short dx, short dy = 0){
-		this->set(' ',x,y);
-		this->set(sym, x+dx, y+dy);
-	}*/
-
-	void move(short x, short y, short dx, short dy){
-		char buffer = this->get_from(x, y);
-		this->set(this->get_from(x+dx, y+dy), x, y);
-		this->set(buffer, x+dx, y + dy);
-	}
-
-	void move(mvd mvd){
-		this->move(mvd.x, mvd.y, mvd.xd, mvd.yd);
-	}
-
-	void reset_stngs(BoardProp stngs){
-		this->stngs = stngs;
-	}
-
-	void place(Player player){
-		this->set(player.get_symb(), player.get_x(), player.get_y());
-	}
-
 };
 
-
-
-
-IniSettings IniDownloader(std::string filename){
-	IniSettings settings;
-	std::ifstream stngs_strm(filename);
-	stngs_strm
-	>> settings.dim_x
-	>> settings.dim_y
-	>> settings.edge_side
-	>> settings.edge_td
-	>> settings.font_size
-	>> settings.font
-	;
-	stngs_strm.close();
-	return settings;
-}
-
-void test(){
-	sf::Texture eye;
-	eye.loadFromFile("lol.png");
-	//sf::Sprite sprt(eye);
-	auto cwindw = sf::VideoMode::getDesktopMode();
-	std::vector<sf::RenderWindow*> wind_lst;
-	for(short i=0;i<10;i++){
-		sf::RenderWindow* wnd = new sf::RenderWindow(sf::VideoMode(512,512),"(0)");
-		wnd->setPosition(sf::Vector2i(std::rand()%(cwindw.width - 512), std::rand()%(cwindw.height - 512)));
-		wind_lst.push_back(wnd);
-		wnd->draw(sf::Sprite(eye));
-		wnd->display();
+class Thing{
+public:
+	bool empt = 1;
+	Thing(){
+		empt = true;
 	}
-	std::this_thread::sleep_for(std::chrono::milliseconds(500));
-	for(short i=0;i<10;i++)delete wind_lst[i];
-}
+};
+
+class Room{
+	sf::Vector2i dims, pos;
+	std::vector<sf::Vector2i> exits;
+	std::vector< std::vector<Thing> > things;
+
+public:
+	Room(sf::Vector2i dims, sf::Vector2i ntrpnt){
+		pos = ntrpnt;
+		dims = ntrpnt;
+		for(int i=0; i<dims.y; i++){
+			std::vector<Thing> vctr;
+			for(int j=0; j<dims.x; j++){
+				Thing toadd;
+				vctr.push_back(toadd);
+			}
+		}
+		int exits = rand()%4;
+		for(int i=0; i<exits;i++){
+			sf::Vector2i n_xt;
+			n_xt.x = i;
+			n_xt.y = i%2?rand()%(dims.x-2):rand()%(dims.y-2);
+		}
+
+	}
+};
+
 
 int main()
 {
@@ -196,7 +164,9 @@ int main()
                 window.close();
         }
 
-        if(sf::Keyboard::isKeyPressed(sf::Keyboard::S))test();
+        if(sf::Keyboard::isKeyPressed(sf::Keyboard::S)){Screamer boo(12, 1);
+        //system("umb.exe");
+        }
 
         window.clear();
         window.display();
