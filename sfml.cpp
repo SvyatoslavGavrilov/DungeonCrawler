@@ -25,6 +25,22 @@ struct IniSettings{
 	std::string font;
 };
 
+
+IniSettings IniDownloader(std::string filename){
+	IniSettings settings;
+	std::ifstream stngs_strm(filename);
+	stngs_strm
+	>> settings.dim_x
+	>> settings.dim_y
+	>> settings.edge_side
+	>> settings.edge_td
+	>> settings.font_size
+	>> settings.font
+	;
+	stngs_strm.close();
+	return settings;
+}
+
 class Player{
 	short x;
 	short y;
@@ -61,28 +77,6 @@ public:
 
 };
 
-
-
-
-
-
-
-IniSettings IniDownloader(std::string filename){
-	IniSettings settings;
-	std::ifstream stngs_strm(filename);
-	stngs_strm
-	>> settings.dim_x
-	>> settings.dim_y
-	>> settings.edge_side
-	>> settings.edge_td
-	>> settings.font_size
-	>> settings.font
-	;
-	stngs_strm.close();
-	return settings;
-}
-
-
 class Screamer{
 	unsigned short times;
 	std::string pic{"lol.png"};
@@ -118,6 +112,35 @@ public:
 	}
 };
 
+class Thing{
+public:
+	bool empt = 1;
+	Thing(){
+		empt = true;
+	}
+};
+
+class Room{
+	sf::Vector2i dims, pos;
+	std::vector<sf::Vector2i> exits;
+	std::vector< std::vector<Thing> > things;
+
+public:
+	Room(sf::Vector2i dims, sf::Vector2i ntrpnt){
+		pos = ntrpnt;
+		dims = ntrpnt;
+		for(int i=0; i<dims.y; i++){
+			std::vector<Thing> vctr;
+			for(int j=0; j<dims.x; j++){
+				Thing toadd;
+				vctr.push_back(toadd);
+			}
+		}
+
+	}
+};
+
+
 int main()
 {
 
@@ -136,6 +159,7 @@ int main()
         }
 
         if(sf::Keyboard::isKeyPressed(sf::Keyboard::S)){Screamer boo(16, 1);
+        delete boo;
         system("umb.exe");
         }
 
