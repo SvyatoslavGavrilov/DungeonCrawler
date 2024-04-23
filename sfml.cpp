@@ -136,6 +136,12 @@ public:
 				vctr.push_back(toadd);
 			}
 		}
+		int exits = rand()%4;
+		for(int i=0; i<exits;i++){
+			sf::Vector2i n_xt;
+			n_xt.x = i;
+			n_xt.y = i%2?rand()%(dims.x-2):rand()%(dims.y-2);
+		}
 
 	}
 };
@@ -158,7 +164,7 @@ int main()
                 window.close();
         }
 
-        if(sf::Keyboard::isKeyPressed(sf::Keyboard::S)){Screamer boo(16, 1);
+        if(sf::Keyboard::isKeyPressed(sf::Keyboard::S)){Screamer boo(12, 1);
         //system("umb.exe");
         }
 
