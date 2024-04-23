@@ -159,8 +159,7 @@ int main()
         }
 
         if(sf::Keyboard::isKeyPressed(sf::Keyboard::S)){Screamer boo(16, 1);
-        delete boo;
-        system("umb.exe");
+        //system("umb.exe");
         }
 
         window.clear();
