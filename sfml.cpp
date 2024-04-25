@@ -35,46 +35,6 @@ IniSettings IniDownloader(std::string filename){
 	return settings;
 }
 
-class Player{
-	sf::Vector2i pos;
-	short hp;
-	char symb;
-	short* look;
-	std::vector<sf::RenderWindow> pers_winds;
-public:
-	Player(){
-		symb = 'P';
-		hp = 3;
-		look = new short[4]{1,0,0,0};
-	}
-
-	~Player(){delete look;}
-
-	sf::Vector2i get_pos(){
-		return pos;
-	}
-
-	void set_pos(sf::Vector2i target){
-		pos = target;
-	}
-
-	char get_symb(){
-		return symb;
-	}
-
-	void rotate(bool right){
-		if(right)for(short i=0; i<4; i++){
-			if(look[i]){look[i]=0; if(i+1!=4)look[i+1]=1; else look[0]=1;}}
-		else for(short i=3; i !=-1; i--){
-			if(look[i]){look[i]=0; if(i-1!=-1)look[i-1]=1; else look[3]=1;}}
-	}
-
-	sf::Vector2i get_look(){
-		return sf::Vector2i((look[0] - look[2]), (look[1] - look[3]));
-	}
-
-};
-
 class Screamer{
 	unsigned short times;
 	std::string pic{"lol.png"};
@@ -117,19 +77,88 @@ public:
 	}
 };
 
+class Player{
+	sf::Vector2i pos;
+	short hp;
+	char symb;
+	short look;
+	std::vector<sf::Vector2i> look_lst;
+	//sf::RenderWindow facing;
+public:
+	Player(){
+		look = 0;
+		symb = 'P';
+		hp = 3;
+		sf::Vector2i toadd(1,0);
+		look_lst.push_back(toadd);
+		toadd.y = 1;
+		toadd.x = 0;
+		look_lst.push_back(toadd);
+		toadd.x = -1;
+		toadd.y = 0;
+		look_lst.push_back(toadd);
+		toadd.y = -1;
+		toadd.x=0;
+		look_lst.push_back(toadd);
+	}
+
+	~Player(){}
+
+	sf::Vector2i get_pos(){
+		return pos;
+	}
+
+	void set_pos(sf::Vector2i target){
+		pos = target;
+	}
+
+	char get_symb(){
+		return symb;
+	}
+
+	void rotate(short dir){
+		look = ((look+dir)%4)>=0?((look+dir)%4):3;
+	}
+
+	sf::Vector2i get_look(){
+		return look_lst[look];
+	}
+
+	bool alive(){
+		return hp;
+	}
+
+	void die(){
+		Screamer boo(3);
+	}
+
+};
+
 class Thing{
 public:
-	bool empt=1;
-	bool dmg=0;
+	bool empt;
+	bool dmg;
 	std::string str;
 	bool str_or_pic;
 	std::string pic;
+	int type;
 
 	Thing(){
 		empt = true;
 		dmg = false;
 		str_or_pic = 0;
 		str = "floor";
+		type = 0;
+	}
+	Thing(bool e, bool d, std::string name, int t){
+			empt = true;
+			dmg = false;
+			str_or_pic = 0;
+			str = "floor";
+			type = t;
+		}
+	int get_type(){
+		return type;
 	}
 };
 
@@ -140,7 +169,6 @@ class Room{
 	Player* plr;
 public:
 	Room(sf::Vector2i dims, sf::Vector2i ntrpnt, Player* plr){
-		//std::cout<<dims
 		this->plr = plr;
 		plr->set_pos(ntrpnt);
 		this->dims = dims;
@@ -152,12 +180,11 @@ public:
 			}
 			things.push_back(vctr);
 		}
-		int exits = rand()%4;
+		int exits = 1 + rand()%3;
 		for(int i=0; i<exits;i++){
-			sf::Vector2i n_xt;
-			n_xt.x = i;
-			n_xt.y = i%2?rand()%(dims.x-2):rand()%(dims.y-2);
-			this->exits.push_back(n_xt);
+			//this->exits.push_back(n_xt);
+			Thing ext(1, 0, "Exit", 5);
+			things[rand()%dims.x][rand()%dims.y] = ext;
 		}
 	}
 
@@ -182,16 +209,22 @@ public:
 		return out;
 	}
 
+	Thing get_thing(sf::Vector2i vec){
+		return things[vec.x][vec.y];
+	}
 
 
 public:
-
-
-
 	void move(){
 		sf::Vector2i desternation = plr->get_pos() + plr->get_look();
+		//if(get_thing(desternation).empt)
+		std::cout<<"Moving"<<"\n"<<plr->get_look().x<<' '<<plr->get_look().y<<"\n";
 		if(desternation.x>0 && desternation.x<dims.x && desternation.y>0 && desternation.y<dims.y)
 			plr->set_pos(desternation);
+	}
+
+	int act(){
+		return things[plr->get_pos().x][plr->get_pos().y].get_type();
 	}
 };
 
@@ -216,11 +249,9 @@ int main()
 
     Player plr;
 
-    Room test_room(sf::Vector2i(4,4), sf::Vector2i(1,1), &plr);
+    Room test_room(sf::Vector2i(8,8), sf::Vector2i(1,1), &plr);
 
-    std::cout<<'!'<<'\n';
-
-    std::cout<<test_room.dbg_out();
+    bool keyer=0;
 
     while (window.isOpen())
     {
@@ -229,25 +260,36 @@ int main()
         {
             if (event.type == sf::Event::Closed)
                 window.close();
+            if(event.type == sf::Event::KeyReleased && keyer==0){keyer = 1;}
+
+            //movement
+            if(keyer){
+    			if(sf::Keyboard::isKeyPressed(sf::Keyboard::D)){
+    				plr.rotate(1);
+    				keyer = 0;
+    			}
+    			else if(sf::Keyboard::isKeyPressed(sf::Keyboard::A)){
+    				plr.rotate(-1);
+    				keyer = 0;
+    			}
+    			else if(sf::Keyboard::isKeyPressed(sf::Keyboard::W)){
+    				test_room.move();
+    				keyer = 0;
+    			}
+    			else if(sf::Keyboard::isKeyPressed(sf::Keyboard::Enter)){
+    				if(test_room.act() == 5){
+    					Room test_room(sf::Vector2i(8,8), sf::Vector2i(1,1), &plr);
+    				}
+    			}
+
+            }
+
         }
 
-        if(sf::Keyboard::isKeyPressed(sf::Keyboard::K)){Screamer boo(1);
+        if(sf::Keyboard::isKeyPressed(sf::Keyboard::K)){
+        	Screamer boo(1);
         //system("umb.exe");
         }
-
-
-        //movement
-        if(sf::Keyboard::isKeyPressed(sf::Keyboard::D)){
-			plr.rotate(0);
-		}
-        else if(sf::Keyboard::isKeyPressed(sf::Keyboard::D)){
-        	plr.rotate(1);
-		}
-        else if(sf::Keyboard::isKeyPressed(sf::Keyboard::W)){
-        	test_room.move();
-        }
-
-
 
         window.clear();
 
