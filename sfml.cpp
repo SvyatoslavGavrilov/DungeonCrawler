@@ -154,7 +154,7 @@ public:
 			empt = true;
 			dmg = false;
 			str_or_pic = 0;
-			str = "floor";
+			str = name;
 			type = t;
 		}
 	int get_type(){
@@ -219,7 +219,7 @@ public:
 		sf::Vector2i desternation = plr->get_pos() + plr->get_look();
 		//if(get_thing(desternation).empt)
 		std::cout<<"Moving"<<"\n"<<plr->get_look().x<<' '<<plr->get_look().y<<"\n";
-		if(desternation.x>0 && desternation.x<dims.x && desternation.y>0 && desternation.y<dims.y)
+		if(desternation.x>=0 && desternation.x<dims.x && desternation.y>0 && desternation.y<dims.y)
 			plr->set_pos(desternation);
 	}
 
@@ -249,7 +249,7 @@ int main()
 
     Player plr;
 
-    Room test_room(sf::Vector2i(8,8), sf::Vector2i(1,1), &plr);
+    Room main_room(sf::Vector2i(8,8), sf::Vector2i(1,1), &plr);
 
     bool keyer=0;
 
@@ -273,12 +273,12 @@ int main()
     				keyer = 0;
     			}
     			else if(sf::Keyboard::isKeyPressed(sf::Keyboard::W)){
-    				test_room.move();
+    				main_room.move();
     				keyer = 0;
     			}
     			else if(sf::Keyboard::isKeyPressed(sf::Keyboard::Enter)){
-    				if(test_room.act() == 5){
-    					Room test_room(sf::Vector2i(8,8), sf::Vector2i(1,1), &plr);
+    				if(main_room.act() == 5){
+    					Room main_room(sf::Vector2i(9,8), plr.get_pos(), &plr);
     				}
     			}
 
@@ -296,7 +296,7 @@ int main()
         if(STNGS.debug){
         	sf::Text debugmap;
         	debugmap.setFont(monofont);
-        	debugmap.setString(test_room.dbg_out());
+        	debugmap.setString(main_room.dbg_out());
         	//debugmap.setCharacterSize(16);
         	text_centerer(&debugmap);
         	window.draw(debugmap);
