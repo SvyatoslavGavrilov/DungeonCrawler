@@ -24,6 +24,13 @@ struct IniSettings{
 
 sf::VideoMode GVS(512+256,512+256);
 
+void text_centerer(sf::Text* txt, sf::VideoMode alighn){
+	sf::Vector2f crd;
+	crd.x = alighn.width/2 - txt->getLocalBounds().width/2;
+	crd.y = alighn.height/2 - txt->getLocalBounds().height/2;
+	txt->setPosition(crd);
+}
+
 IniSettings IniDownloader(std::string filename){
 	IniSettings settings;
 	std::ifstream stngs_strm(filename);
@@ -83,12 +90,21 @@ class Player{
 	char symb;
 	short look;
 	std::vector<sf::Vector2i> look_lst;
-	//sf::RenderWindow facing;
+	sf::RenderWindow* facing_w;
+	sf::Text facing_txt;
+	sf::Font font;
+	std::vector<std::string> directions;
 public:
-	Player(){
-		look = 0;
+	Player(std::string fontname){
+		font.loadFromFile(fontname);
+		facing_txt.setFont(font);
+		facing_w = new sf::RenderWindow(sf::VideoMode(256, 256), "I am facing");
+
 		symb = 'P';
 		hp = 3;
+
+		look = 0;
+
 		sf::Vector2i toadd(1,0);
 		look_lst.push_back(toadd);
 		toadd.y = 1;
@@ -100,9 +116,19 @@ public:
 		toadd.y = -1;
 		toadd.x=0;
 		look_lst.push_back(toadd);
+
+		directions.push_back("East");
+		directions.push_back("South");
+		directions.push_back("West");
+		directions.push_back("North");
+
+		facing_txt.setString(directions[look]);
+
 	}
 
-	~Player(){}
+	~Player(){
+		delete facing_w;
+	}
 
 	sf::Vector2i get_pos(){
 		return pos;
@@ -118,6 +144,7 @@ public:
 
 	void rotate(short dir){
 		look = ((look+dir)%4)>=0?((look+dir)%4):3;
+		facing_txt.setString(directions[look]);
 	}
 
 	sf::Vector2i get_look(){
@@ -130,6 +157,13 @@ public:
 
 	void die(){
 		Screamer boo(3);
+	}
+
+	void render(){
+		text_centerer(&facing_txt, sf::VideoMode(256, 256));
+		facing_w->clear();
+		facing_w->draw(facing_txt);
+		facing_w->display();
 	}
 
 };
@@ -184,24 +218,20 @@ public:
 		for(int i=0; i<exits;i++){
 			//this->exits.push_back(n_xt);
 			Thing ext(1, 0, "Exit", 5);
-			things[rand()%dims.x][rand()%dims.y] = ext;
+			things[rand()%dims.y][rand()%dims.x] = ext;
 		}
 	}
 
 	void draw(std::vector<sf::Drawable>& out){
 		sf::Vector2i center(GVS.width, GVS.height);
-
-
-
 		out.clear();
-
 	}
 
 	std::string dbg_out(){
 		std::string out;
 		for(int i=0; i<dims.y; i++){
 			for(int j=0; j<dims.x; j++){
-				out +=+(i == plr->get_pos().y && j == plr->get_pos().x)?'P':static_cast<char>(things[j][i].str[0]);
+				out +=+(i == plr->get_pos().y && j == plr->get_pos().x)?'P':static_cast<char>(things[i][j].str[0]);
 			}
 			out+="\n";
 		}
@@ -218,22 +248,15 @@ public:
 	void move(){
 		sf::Vector2i desternation = plr->get_pos() + plr->get_look();
 		//if(get_thing(desternation).empt)
-		std::cout<<"Moving"<<"\n"<<plr->get_look().x<<' '<<plr->get_look().y<<"\n";
-		if(desternation.x>=0 && desternation.x<dims.x && desternation.y>0 && desternation.y<dims.y)
+		//std::cout<<"Moving"<<"\n"<<plr->get_look().x<<' '<<plr->get_look().y<<"\n";
+		if(desternation.x>=0 && desternation.x<dims.x && desternation.y>=0 && desternation.y<dims.y)
 			plr->set_pos(desternation);
 	}
 
 	int act(){
-		return things[plr->get_pos().x][plr->get_pos().y].get_type();
+		return things[plr->get_pos().y][plr->get_pos().x].get_type();
 	}
 };
-
-void text_centerer(sf::Text* txt){
-	sf::Vector2f crd;
-	crd.x = GVS.width/2 - txt->getLocalBounds().width/2;
-	crd.y = GVS.height/2 - txt->getLocalBounds().height/2;
-	txt->setPosition(crd);
-}
 
 int main()
 {
@@ -247,7 +270,7 @@ int main()
     monofont.loadFromFile(STNGS.font);
 
 
-    Player plr;
+    Player plr(STNGS.font);
 
     Room main_room(sf::Vector2i(8,8), sf::Vector2i(1,1), &plr);
 
@@ -278,7 +301,10 @@ int main()
     			}
     			else if(sf::Keyboard::isKeyPressed(sf::Keyboard::Enter)){
     				if(main_room.act() == 5){
-    					Room main_room(sf::Vector2i(9,8), plr.get_pos(), &plr);
+    					Screamer boo(1);
+    					sf::Vector2i place(2+rand()%8, 2+rand()%8);
+    					Room n_r(place, sf::Vector2i(rand()%place.x, rand()%place.y), &plr);
+    					main_room = n_r;
     				}
     			}
 
@@ -291,6 +317,8 @@ int main()
         //system("umb.exe");
         }
 
+        plr.render();
+
         window.clear();
 
         if(STNGS.debug){
@@ -298,10 +326,10 @@ int main()
         	debugmap.setFont(monofont);
         	debugmap.setString(main_room.dbg_out());
         	//debugmap.setCharacterSize(16);
-        	text_centerer(&debugmap);
+        	text_centerer(&debugmap, GVS);
         	window.draw(debugmap);
         }
-
+        plr.render();
         window.display();
 
     }
