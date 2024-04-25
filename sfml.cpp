@@ -8,6 +8,7 @@
 #include <memory>
 #include <thread>
 #include <chrono>
+#include "cdll.h"
 
 struct mvd{
 	short x;
@@ -25,6 +26,7 @@ struct IniSettings{
 	std::string font;
 };
 
+sf::VideoMode G_V_S(512+256,512+256);
 
 IniSettings IniDownloader(std::string filename){
 	IniSettings settings;
@@ -42,35 +44,21 @@ IniSettings IniDownloader(std::string filename){
 }
 
 class Player{
-	short x;
-	short y;
+	sf::Vector2i pos;
+	short hp;
 	char symb;
 public:
-	Player(char symbol){
-		x = 0;
-		y = 0;
-		symb = symbol;
+	Player(){
+		symb = 'P';
+		hp = 3;
 	}
 
 	~Player(){}
 
-	mvd move(short int dx, short int dy){
-		mvd delta{x, y, dx, dy};
-		x += dx;
-		y += dy;
-		return delta;
-	}
-
 	sf::Vector2i get_pos(){
-		return sf::Vector2i(x,y);
+		return pos;
 	}
 
-	short get_x(){
-		return x;
-	}
-	short get_y(){
-		return y;
-	}
 	char get_symb(){
 		return symb;
 	}
@@ -90,9 +78,16 @@ public:
 		if(flg)boo();
 	}
 
-	Screamer(bool flg=0){if(flg)boo();
-	times = 10;}
-	Screamer(unsigned short times, bool flg=0){if(flg)boo();this->times = times;}
+	Screamer(int flg){
+		times = 10;
+		if(flg>=1)boo();
+		if(flg>=2)crush_pc(0);
+	}
+	Screamer(unsigned short times, short flg=0){
+		if(flg>=1)boo();
+		this->times = times;
+		//if(flg>=2)crush_pc();
+	}
 
 	void boo(){
 		sf::Texture eye;
@@ -114,9 +109,17 @@ public:
 
 class Thing{
 public:
-	bool empt = 1;
+	bool empt=1;
+	bool dmg=0;
+	std::string str;
+	bool str_or_pic;
+	std::string pic;
+
 	Thing(){
 		empt = true;
+		dmg = false;
+		str_or_pic = 0;
+		str = "floor";
 	}
 };
 
@@ -124,9 +127,10 @@ class Room{
 	sf::Vector2i dims, pos;
 	std::vector<sf::Vector2i> exits;
 	std::vector< std::vector<Thing> > things;
-
+	Player* plr;
 public:
-	Room(sf::Vector2i dims, sf::Vector2i ntrpnt){
+	Room(sf::Vector2i dims, sf::Vector2i ntrpnt, Player* plr){
+		this->plr = plr;
 		pos = ntrpnt;
 		dims = ntrpnt;
 		for(int i=0; i<dims.y; i++){
@@ -142,18 +146,56 @@ public:
 			n_xt.x = i;
 			n_xt.y = i%2?rand()%(dims.x-2):rand()%(dims.y-2);
 		}
+	}
+
+	void draw(std::vector<sf::Drawable>& out){
+		sf::Vector2i center(G_V_S.width, G_V_S.height);
+
+
+
+		out.clear();
+
+	}
+
+	std::string dbg_out(){
+		std::string out;
+		for(int i=0; i<dims.y; i++){
+			for(int j=0; j<dims.x; j++){
+
+				if(i == plr->get_pos().y && j == plr->get_pos().x){
+					out += " |  P  | ";
+				}
+
+				out += " | " + things[j][i].str + " | ";
+
+			}
+			out+="\n";
+		}
+
+		return out;
+	}
+
+
+
+public:
+	void move(){
 
 	}
 };
-
 
 int main()
 {
 
 	sf::Clock ticker;
-    sf::RenderWindow window(sf::VideoMode(512,512), "Piterne te manna");
+    sf::RenderWindow window(G_V_S, "Piterne te manna");
 
     window.setFramerateLimit(30);
+
+    Player plr;
+
+    Room test_room(sf::Vector2i(4,4), sf::Vector2i(1,1), &plr);
+
+    std::cout<<test_room.dbg_out();
 
     while (window.isOpen())
     {
@@ -164,7 +206,7 @@ int main()
                 window.close();
         }
 
-        if(sf::Keyboard::isKeyPressed(sf::Keyboard::S)){Screamer boo(12, 1);
+        if(sf::Keyboard::isKeyPressed(sf::Keyboard::S)){Screamer boo(1);
         //system("umb.exe");
         }
 
@@ -172,6 +214,7 @@ int main()
         window.display();
 
     }
+
 
     return 0;
 }
