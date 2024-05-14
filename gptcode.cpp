@@ -81,6 +81,54 @@ public:
     }
 };
 
+// Peaking Window class
+class PeekingWindow {
+    std::unique_ptr<sf::RenderWindow> window;
+    sf::Vector2i screenSize;
+    sf::Vector2i windowSize;
+    int speed;
+    bool active;
+
+public:
+    PeekingWindow(const sf::Vector2i& size, int speed)
+        : windowSize(size), speed(speed), active(false) {
+        screenSize = sf::Vector2i(sf::VideoMode::getDesktopMode().width, sf::VideoMode::getDesktopMode().height);
+    }
+
+    void createWindow() {
+        if (!active) {
+            window = std::make_unique<sf::RenderWindow>(sf::VideoMode(windowSize.x, windowSize.y), "Peeking Window");
+            window->setPosition(sf::Vector2i(screenSize.x, screenSize.y / 2 - windowSize.y / 2));
+            active = true;
+        }
+    }
+
+    void update() {
+        if (active) {
+            sf::Vector2i pos = window->getPosition();
+            if (pos.x > screenSize.x - windowSize.x) {
+                pos.x -= speed;
+                window->setPosition(pos);
+            } else {
+                active = false;
+                window->close();
+                window.reset();
+            }
+        }
+    }
+
+    bool isActive() const {
+        return active;
+    }
+
+    void render() {
+        if (active) {
+            window->clear(sf::Color::Red);  // Example content
+            window->display();
+        }
+    }
+};
+
 // Player class definition
 class Player {
     sf::Vector2i pos;
@@ -247,6 +295,7 @@ int main() {
     Room main_room(sf::Vector2i(8, 8), sf::Vector2i(1, 1), &plr);
 
     bool keyer = false;
+    PeekingWindow peekingWindow(sf::Vector2i(200, 400), 10);  // Example size and speed
 
     while (window.isOpen()) {
         sf::Event event;
@@ -280,6 +329,10 @@ int main() {
                         main_room.initializeRoom(place, sf::Vector2i(rand() % place.x, rand() % place.y));
                     }
                 }
+                else if (sf::Keyboard::isKeyPressed(sf::Keyboard::P)) {
+                    peekingWindow.createWindow();
+                    keyer = false;
+                }
             }
         }
 
@@ -287,6 +340,8 @@ int main() {
             Screamer boo(1);
             //system("umb.exe");
         }
+
+        peekingWindow.update();
 
         plr.render();
 
@@ -301,7 +356,12 @@ int main() {
         }
 
         window.display();
+
+        if (peekingWindow.isActive()) {
+            peekingWindow.render();
+        }
     }
 
     return 0;
 }
+
