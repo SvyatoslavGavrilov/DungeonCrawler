@@ -92,9 +92,10 @@ class Player{
 	std::vector<sf::Vector2i> look_lst;
 	sf::RenderWindow* facing_w;
 	sf::Text facing_txt;
-	sf::Font font;
+
 	std::vector<std::string> directions;
 public:
+	sf::Font font;
 	Player(std::string fontname){
 		font.loadFromFile(fontname);
 		facing_txt.setFont(font);
@@ -201,11 +202,17 @@ class Room{
 	std::vector<sf::Vector2i> exits;
 	std::vector< std::vector<Thing> > things;
 	Player* plr;
+
+	sf::RenderWindow* stnd_ovr;
+	sf::Text litera;
+	sf::Font font;
+
 public:
 	Room(sf::Vector2i dims, sf::Vector2i ntrpnt, Player* plr){
 		this->plr = plr;
 		plr->set_pos(ntrpnt);
 		this->dims = dims;
+		this->font = plr->font;
 		for(int i=0; i<dims.y; i++){
 			std::vector<Thing> vctr;
 			for(int j=0; j<dims.x; j++){
@@ -220,11 +227,14 @@ public:
 			Thing ext(1, 0, "Exit", 5);
 			things[rand()%dims.y][rand()%dims.x] = ext;
 		}
+
+		stnd_ovr = new sf::RenderWindow(sf::VideoMode(256, 128), "Standing Over");
+		litera.setFont(this->font);
+
 	}
 
-	void draw(std::vector<sf::Drawable>& out){
-		sf::Vector2i center(GVS.width, GVS.height);
-		out.clear();
+	~Room(){
+		delete stnd_ovr;
 	}
 
 	std::string dbg_out(){
@@ -243,19 +253,31 @@ public:
 		return things[vec.x][vec.y];
 	}
 
+	void render(){
+		sf::Vector2i center(GVS.width, GVS.height);
+		text_centerer(&litera, sf::VideoMode(256, 128));
+		litera.setString(get_thing(plr->get_pos()).str);
+		stnd_ovr->clear();
+		stnd_ovr->draw(litera);
+		stnd_ovr->display();
+	}
 
-public:
+
 	void move(){
 		sf::Vector2i desternation = plr->get_pos() + plr->get_look();
 		//if(get_thing(desternation).empt)
 		//std::cout<<"Moving"<<"\n"<<plr->get_look().x<<' '<<plr->get_look().y<<"\n";
 		if(desternation.x>=0 && desternation.x<dims.x && desternation.y>=0 && desternation.y<dims.y)
 			plr->set_pos(desternation);
+		render();
 	}
 
 	int act(){
 		return things[plr->get_pos().y][plr->get_pos().x].get_type();
 	}
+
+
+
 };
 
 int main()
@@ -281,8 +303,10 @@ int main()
         sf::Event event;
         while (window.pollEvent(event))
         {
-            if (event.type == sf::Event::Closed)
-                window.close();
+            if (event.type == sf::Event::Closed){
+					window.close();
+					return 0;
+			}
             if(event.type == sf::Event::KeyReleased && keyer==0){keyer = 1;}
 
             //movement
@@ -307,7 +331,6 @@ int main()
     					main_room = n_r;
     				}
     			}
-
             }
 
         }
@@ -320,7 +343,6 @@ int main()
         plr.render();
 
         window.clear();
-
         if(STNGS.debug){
         	sf::Text debugmap;
         	debugmap.setFont(monofont);
@@ -329,7 +351,7 @@ int main()
         	text_centerer(&debugmap, GVS);
         	window.draw(debugmap);
         }
-        plr.render();
+
         window.display();
 
     }
