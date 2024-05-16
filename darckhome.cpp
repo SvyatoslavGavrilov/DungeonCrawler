@@ -10,13 +10,6 @@
 #include <cstdlib>
 
 // Custom struct definitions
-struct mvd {
-    short x;
-    short y;
-    short xd;
-    short yd;
-};
-
 struct IniSettings {
     bool debug;
     std::string font;
@@ -55,12 +48,10 @@ public:
 
     Screamer(int flg) : times(10) {
         if (flg >= 1) boo();
-        // if (flg >= 2) crush_pc(0);
     }
 
     Screamer(unsigned short times, short flg = 0) : times(times) {
         if (flg >= 1) boo();
-        // if (flg >= 2) crush_pc();
     }
 
     void boo() {
@@ -81,7 +72,7 @@ public:
     }
 };
 
-// Peaking Window class
+// Peeking Window class
 class PeekingWindow {
     std::unique_ptr<sf::RenderWindow> window;
     sf::Vector2i screenSize;
@@ -130,28 +121,27 @@ public:
 };
 
 // Player class definition
+const std::string ASCII_ARROWS[] = {"->", "|\nV", "<-", "^\n|"};
+
 class Player {
     sf::Vector2i pos;
     short hp;
     char symb;
     short look;
     std::vector<sf::Vector2i> look_lst;
-    std::unique_ptr<sf::RenderWindow> facing_w;
     sf::Text facing_txt;
-    std::vector<std::string> directions;
+    sf::RenderWindow* main_window;
 
 public:
     sf::Font font;
 
-    Player(const std::string& fontname) : pos{0, 0}, hp{3}, symb{'P'}, look{0} {
+    Player(const std::string& fontname, sf::RenderWindow* window)
+        : pos{0, 0}, hp{3}, symb{'P'}, look{0}, main_window(window) {
         font.loadFromFile(fontname);
         facing_txt.setFont(font);
-        facing_w = std::make_unique<sf::RenderWindow>(sf::VideoMode(256, 256), "I am facing");
 
         look_lst = {{1, 0}, {0, 1}, {-1, 0}, {0, -1}};
-        directions = {"East", "South", "West", "North"};
-
-        facing_txt.setString(directions[look]);
+        facing_txt.setString(ASCII_ARROWS[look]);
     }
 
     sf::Vector2i get_pos() const {
@@ -168,7 +158,7 @@ public:
 
     void rotate(short dir) {
         look = ((look + dir) % 4 + 4) % 4; // Ensure positive result
-        facing_txt.setString(directions[look]);
+        facing_txt.setString(ASCII_ARROWS[look]);
     }
 
     sf::Vector2i get_look() const {
@@ -184,10 +174,9 @@ public:
     }
 
     void render() {
-        text_centerer(&facing_txt, sf::VideoMode(256, 256));
-        facing_w->clear();
-        facing_w->draw(facing_txt);
-        facing_w->display();
+        text_centerer(&facing_txt, sf::VideoMode(main_window->getSize().x / 4, main_window->getSize().y));
+        facing_txt.setPosition(0, main_window->getSize().y / 2 - facing_txt.getGlobalBounds().height / 2);
+        main_window->draw(facing_txt);
     }
 };
 
@@ -214,16 +203,16 @@ public:
 // Room class definition
 class Room {
     sf::Vector2i dims;
-    std::vector<sf::Vector2i> exits;
     std::vector<std::vector<Thing>> things;
     Player* plr;
-    std::unique_ptr<sf::RenderWindow> stnd_ovr;
     sf::Text litera;
     sf::Font font;
+    bool keyer;
+    sf::RenderWindow* main_window;
 
 public:
-    Room(const sf::Vector2i& dims, const sf::Vector2i& ntrpnt, Player* plr)
-        : dims(dims), plr(plr), font(plr->font) {
+    Room(const sf::Vector2i& dims, const sf::Vector2i& ntrpnt, Player* plr, sf::RenderWindow* window)
+        : dims(dims), plr(plr), font(plr->font), keyer(false), main_window(window) {
         initializeRoom(dims, ntrpnt);
     }
 
@@ -240,33 +229,34 @@ public:
             things[rand() % dims.y][rand() % dims.x] = ext;
         }
 
-        if (!stnd_ovr) {
-            stnd_ovr = std::make_unique<sf::RenderWindow>(sf::VideoMode(256, 128), "Standing Over");
-        }
         litera.setFont(font);
     }
 
-    std::string dbg_out() const {
-        std::string out;
-        for (int i = 0; i < dims.y; ++i) {
-            for (int j = 0; j < dims.x; ++j) {
-                out += (i == plr->get_pos().y && j == plr->get_pos().x) ? 'P' : static_cast<char>(things[i][j].str[0]);
-            }
-            out += "\n";
+    void handleEvent(const sf::Event& event) {
+        if (event.type == sf::Event::KeyReleased) {
+            keyer = true;
         }
-        return out;
     }
 
-    Thing get_thing(const sf::Vector2i& vec) const {
-        return things[vec.y][vec.x];
-    }
-
-    void render() {
-        text_centerer(&litera, sf::VideoMode(256, 128));
-        litera.setString(get_thing(plr->get_pos()).str);
-        stnd_ovr->clear();
-        stnd_ovr->draw(litera);
-        stnd_ovr->display();
+    void update() {
+        if (keyer) {
+            if (sf::Keyboard::isKeyPressed(sf::Keyboard::D)) {
+                plr->rotate(1);
+                keyer = false;
+            } else if (sf::Keyboard::isKeyPressed(sf::Keyboard::A)) {
+                plr->rotate(-1);
+                keyer = false;
+            } else if (sf::Keyboard::isKeyPressed(sf::Keyboard::W)) {
+                move();
+                keyer = false;
+            } else if (sf::Keyboard::isKeyPressed(sf::Keyboard::Enter)) {
+                if (act() == 5) {
+                    Screamer boo(1);
+                    sf::Vector2i place(2 + rand() % 8, 2 + rand() % 8);
+                    initializeRoom(place, sf::Vector2i(rand() % place.x, rand() % place.y));
+                }
+            }
+        }
     }
 
     void move() {
@@ -280,80 +270,93 @@ public:
     int act() const {
         return things[plr->get_pos().y][plr->get_pos().x].get_type();
     }
+
+    std::string dbg_out() const {
+        std::string out;
+        for (int i = 0; i < dims.y; ++i) {
+            for (int j = 0; j < dims.x; ++j) {
+                out += (i == plr->get_pos().y && j == plr->get_pos().x) ? 'P' : static_cast<char>(things[i][j].str[0]);
+            }
+            out += "\n";
+        }
+        return out;
+    }
+
+    void render() {
+        text_centerer(&litera, sf::VideoMode(main_window->getSize().x / 4, main_window->getSize().y));
+        litera.setString(get_thing(plr->get_pos()).str);
+        litera.setPosition(3 * main_window->getSize().x / 4, main_window->getSize().y / 2 - litera.getGlobalBounds().height / 2);
+        main_window->draw(litera);
+    }
+
+    Thing get_thing(const sf::Vector2i& vec) const {
+        return things[vec.y][vec.x];
+    }
 };
 
-// Main function
-int main() {
-    sf::RenderWindow window(GVS, "Piterne te manna");
-    window.setFramerateLimit(30);
-
-    IniSettings settings = IniDownloader("stngs.ini");
+// MainWindow class definition
+class MainWindow {
+    sf::RenderWindow window;
+    IniSettings settings;
     sf::Font monofont;
-    monofont.loadFromFile(settings.font);
+    Player player;
+    Room room;
+    PeekingWindow peekingWindow;
 
-    Player plr(settings.font);
-    Room main_room(sf::Vector2i(8, 8), sf::Vector2i(1, 1), &plr);
+public:
+    MainWindow()
+        : window(GVS, "Piterne te manna"),
+          settings(IniDownloader("stngs.ini")),
+          player(settings.font, &window),
+          room(sf::Vector2i(8, 8), sf::Vector2i(1, 1), &player, &window),
+          peekingWindow(sf::Vector2i(200, 400), 10) {
+        window.setFramerateLimit(30);
+        monofont.loadFromFile(settings.font);
+    }
 
-    bool keyer = false;
-    PeekingWindow peekingWindow(sf::Vector2i(200, 400), 10);  // Example size and speed
+    void run() {
+        while (window.isOpen()) {
+            handleEvents();
+            update();
+            render();
+        }
+    }
 
-    while (window.isOpen()) {
+private:
+    void handleEvents() {
         sf::Event event;
         while (window.pollEvent(event)) {
             if (event.type == sf::Event::Closed) {
                 window.close();
-                return 0;
+                return;
             }
-            if (event.type == sf::Event::KeyReleased && !keyer) {
-                keyer = true;
-            }
-
-            // Movement and actions
-            if (keyer) {
-                if (sf::Keyboard::isKeyPressed(sf::Keyboard::D)) {
-                    plr.rotate(1);
-                    keyer = false;
-                }
-                else if (sf::Keyboard::isKeyPressed(sf::Keyboard::A)) {
-                    plr.rotate(-1);
-                    keyer = false;
-                }
-                else if (sf::Keyboard::isKeyPressed(sf::Keyboard::W)) {
-                    main_room.move();
-                    keyer = false;
-                }
-                else if (sf::Keyboard::isKeyPressed(sf::Keyboard::Enter)) {
-                    if (main_room.act() == 5) {
-                        Screamer boo(1);
-                        sf::Vector2i place(2 + rand() % 8, 2 + rand() % 8);
-                        main_room.initializeRoom(place, sf::Vector2i(rand() % place.x, rand() % place.y));
-                    }
-                }
-                else if (sf::Keyboard::isKeyPressed(sf::Keyboard::P)) {
-                    peekingWindow.createWindow();
-                    keyer = false;
-                }
-            }
+            room.handleEvent(event);
         }
+    }
 
+    void update() {
         if (sf::Keyboard::isKeyPressed(sf::Keyboard::K)) {
             Screamer boo(1);
-            //system("umb.exe");
         }
 
         peekingWindow.update();
+        room.update();
+        player.render();
+    }
 
-        plr.render();
-
+    void render() {
         window.clear();
+
         if (settings.debug) {
             sf::Text debugmap;
             debugmap.setFont(monofont);
-            debugmap.setString(main_room.dbg_out());
-            //debugmap.setCharacterSize(16);
+            debugmap.setString(room.dbg_out());
             text_centerer(&debugmap, GVS);
             window.draw(debugmap);
         }
+
+        room.render();
+        player.render();
 
         window.display();
 
@@ -361,7 +364,11 @@ int main() {
             peekingWindow.render();
         }
     }
+};
 
+// Main function
+int main() {
+    MainWindow mainWindow;
+    mainWindow.run();
     return 0;
 }
-
