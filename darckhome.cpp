@@ -132,6 +132,7 @@ public:
             throw std::runtime_error("Failed to load image file");
         }
         sprite.setTexture(texture);
+        windowSize = sf::Vector2i(texture.getSize());
     }
 
     void createWindow() {
@@ -142,7 +143,7 @@ public:
             extending = true;
 
             #ifdef _WIN32
-            makeWindowBackgroundTransparent(*window);  // Make the window background transparent
+            makeWindowBackgroundTransparentRed(*window);  // Make the window background transparent
             #endif
         }
     }
@@ -392,7 +393,7 @@ public:
           settings(IniDownloader("stngs.ini")),
           player(settings.font, sf::Vector2i(window.getPosition().x - 256 + 8, window.getPosition().y)),
           room(sf::Vector2i(8, 8), sf::Vector2i(1, 1), &player, sf::Vector2i(window.getPosition().x + window.getSize().x + 8, window.getPosition().y)),
-          peekingWindow(sf::Vector2i(200, 400), 10, "pics/conuct.png") {
+          peekingWindow(sf::Vector2i(200, 400), 10, "pics/eegg.png") {
         window.setFramerateLimit(30);
         monofont.loadFromFile(settings.font);
     }
