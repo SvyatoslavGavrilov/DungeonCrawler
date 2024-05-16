@@ -8,12 +8,7 @@
 #include <thread>
 #include <chrono>
 #include <cstdlib>
-
-// Custom struct definitions
-struct IniSettings {
-    bool debug;
-    std::string font;
-};
+#include "WindowTransparency.h"
 
 // Global VideoMode variable
 sf::VideoMode GVS(512 + 256, 512 + 256);
@@ -27,30 +22,72 @@ void text_centerer(sf::Text* txt, sf::VideoMode align) {
 }
 
 // Function to download and parse INI settings from a file
+
+struct IniSettings {
+    bool debug;
+    std::string font;
+    int width;
+    int height;
+    int framerate_limit;
+};
+
 IniSettings IniDownloader(const std::string& filename) {
     IniSettings settings;
-    std::ifstream settings_stream(filename);
-    settings_stream >> settings.debug >> settings.font;
+    std::ifstream file(filename);
+    if (!file.is_open()) {
+        throw std::runtime_error("Failed to open settings file");
+    }
+
+    std::string line;
+    while (std::getline(file, line)) {
+        std::stringstream ss(line);
+        std::string comment, value;
+
+        if (std::getline(ss, comment, ',') && std::getline(ss, value)) {
+            if (comment == "debug") {
+                settings.debug = (value == "true");
+            } else if (comment == "font") {
+                settings.font = value;
+            } else if (comment == "width") {
+                settings.width = std::stoi(value);
+            } else if (comment == "height") {
+                settings.height = std::stoi(value);
+            } else if (comment == "framerate_limit") {
+                settings.framerate_limit = std::stoi(value);
+            }
+        }
+    }
+
     return settings;
 }
 
 // Screamer class definition
 class Screamer {
     unsigned short times;
-    std::string pic{"lol.png"};
-    sf::Vector2i res{512, 512};
+    std::string pic{"pics/conuct.png"};
+    sf::Vector2i res;
 
 public:
-    Screamer(unsigned short times, const std::string& pic, sf::Vector2i res, bool flg = false)
-        : times(times), pic(pic), res(res) {
+    Screamer(unsigned short times, const std::string& pic, bool flg = false)
+        : times(times), pic(pic){
+    	sf::Texture eye;
+    	eye.loadFromFile(pic);
+    	res = sf::Vector2i(eye.getSize());
         if (flg) boo();
     }
 
     Screamer(int flg) : times(10) {
+    	sf::Texture eye;
+		eye.loadFromFile(pic);
+		res = sf::Vector2i(eye.getSize());
         if (flg >= 1) boo();
     }
 
     Screamer(unsigned short times, short flg = 0) : times(times) {
+    	sf::Texture eye;
+		eye.loadFromFile(pic);
+		res = sf::Vector2i(eye.getSize());
+		if (flg) boo();
         if (flg >= 1) boo();
     }
 
@@ -61,7 +98,10 @@ public:
         std::vector<std::unique_ptr<sf::RenderWindow>> wind_lst;
 
         for (unsigned int i = 0; i < times; ++i) {
-            auto wnd = std::make_unique<sf::RenderWindow>(sf::VideoMode(res.x, res.y), "(0)");
+            auto wnd = std::make_unique<sf::RenderWindow>(sf::VideoMode(eye.getSize().x, eye.getSize().y), "(0)", sf::Style::None);
+			#ifdef _WIN32
+            makeWindowBackgroundTransparent(*wnd);  // Make the window background transparent
+            #endif
             wnd->setPosition(sf::Vector2i(std::rand() % (cwindw.width - res.x), std::rand() % (cwindw.height - res.y)));
             wnd->draw(sf::Sprite(eye));
             wnd->display();
@@ -73,37 +113,59 @@ public:
 };
 
 // Peeking Window class
+
 class PeekingWindow {
     std::unique_ptr<sf::RenderWindow> window;
     sf::Vector2i screenSize;
     sf::Vector2i windowSize;
     int speed;
     bool active;
+    bool extending;
+    sf::Texture texture;
+    sf::Sprite sprite;
 
 public:
-    PeekingWindow(const sf::Vector2i& size, int speed)
-        : windowSize(size), speed(speed), active(false) {
+    PeekingWindow(const sf::Vector2i& size, int speed, const std::string& imageFile)
+        : windowSize(size), speed(speed), active(false), extending(true) {
         screenSize = sf::Vector2i(sf::VideoMode::getDesktopMode().width, sf::VideoMode::getDesktopMode().height);
+        if (!texture.loadFromFile(imageFile)) {
+            throw std::runtime_error("Failed to load image file");
+        }
+        sprite.setTexture(texture);
     }
 
     void createWindow() {
         if (!active) {
-            window = std::make_unique<sf::RenderWindow>(sf::VideoMode(windowSize.x, windowSize.y), "Peeking Window");
+            window = std::make_unique<sf::RenderWindow>(sf::VideoMode(windowSize.x, windowSize.y), "Peeking Window", sf::Style::None);
             window->setPosition(sf::Vector2i(screenSize.x, screenSize.y / 2 - windowSize.y / 2));
             active = true;
+            extending = true;
+
+            #ifdef _WIN32
+            makeWindowBackgroundTransparent(*window);  // Make the window background transparent
+            #endif
         }
     }
 
     void update() {
         if (active) {
             sf::Vector2i pos = window->getPosition();
-            if (pos.x > screenSize.x - windowSize.x) {
-                pos.x -= speed;
-                window->setPosition(pos);
+            if (extending) {
+                if (pos.x > screenSize.x - windowSize.x) {
+                    pos.x -= speed;
+                    window->setPosition(pos);
+                } else {
+                    extending = false;
+                }
             } else {
-                active = false;
-                window->close();
-                window.reset();
+                if (pos.x < screenSize.x) {
+                    pos.x += speed;
+                    window->setPosition(pos);
+                } else {
+                    active = false;
+                    window->close();
+                    window.reset();
+                }
             }
         }
     }
@@ -114,7 +176,8 @@ public:
 
     void render() {
         if (active) {
-            window->clear(sf::Color::Red);  // Example content
+            window->clear(sf::Color::Black);  // Clear with the transparent color key
+            window->draw(sprite);
             window->display();
         }
     }
@@ -130,15 +193,16 @@ class Player {
     short look;
     std::vector<sf::Vector2i> look_lst;
     sf::Text facing_txt;
-    sf::RenderWindow* main_window;
+    sf::RenderWindow facing_window;
 
 public:
     sf::Font font;
 
-    Player(const std::string& fontname, sf::RenderWindow* window)
-        : pos{0, 0}, hp{3}, symb{'P'}, look{0}, main_window(window) {
+    Player(const std::string& fontname, const sf::Vector2i& facing_window_position)
+        : pos{0, 0}, hp{3}, symb{'P'}, look{0}, facing_window(sf::VideoMode(256, 128), "I am facing", sf::Style::None) {
         font.loadFromFile(fontname);
         facing_txt.setFont(font);
+        facing_window.setPosition(facing_window_position);
 
         look_lst = {{1, 0}, {0, 1}, {-1, 0}, {0, -1}};
         facing_txt.setString(ASCII_ARROWS[look]);
@@ -174,9 +238,18 @@ public:
     }
 
     void render() {
-        text_centerer(&facing_txt, sf::VideoMode(main_window->getSize().x / 4, main_window->getSize().y));
-        facing_txt.setPosition(0, main_window->getSize().y / 2 - facing_txt.getGlobalBounds().height / 2);
-        main_window->draw(facing_txt);
+        facing_window.clear();
+        text_centerer(&facing_txt, sf::VideoMode(256, 128));
+        facing_window.draw(facing_txt);
+        facing_window.display();
+    }
+
+    void close_window() {
+        facing_window.close();
+    }
+
+    bool is_window_open() const {
+        return facing_window.isOpen();
     }
 };
 
@@ -208,11 +281,12 @@ class Room {
     sf::Text litera;
     sf::Font font;
     bool keyer;
-    sf::RenderWindow* main_window;
+    sf::RenderWindow standing_window;
 
 public:
-    Room(const sf::Vector2i& dims, const sf::Vector2i& ntrpnt, Player* plr, sf::RenderWindow* window)
-        : dims(dims), plr(plr), font(plr->font), keyer(false), main_window(window) {
+    Room(const sf::Vector2i& dims, const sf::Vector2i& ntrpnt, Player* plr, const sf::Vector2i& standing_window_position)
+        : dims(dims), plr(plr), font(plr->font), keyer(false), standing_window(sf::VideoMode(256, 128), "Standing Over", sf::Style::None) {
+        standing_window.setPosition(standing_window_position);
         initializeRoom(dims, ntrpnt);
     }
 
@@ -283,10 +357,19 @@ public:
     }
 
     void render() {
-        text_centerer(&litera, sf::VideoMode(main_window->getSize().x / 4, main_window->getSize().y));
+        standing_window.clear();
         litera.setString(get_thing(plr->get_pos()).str);
-        litera.setPosition(3 * main_window->getSize().x / 4, main_window->getSize().y / 2 - litera.getGlobalBounds().height / 2);
-        main_window->draw(litera);
+        text_centerer(&litera, sf::VideoMode(256, 128));
+        standing_window.draw(litera);
+        standing_window.display();
+    }
+
+    void close_window() {
+        standing_window.close();
+    }
+
+    bool is_window_open() const {
+        return standing_window.isOpen();
     }
 
     Thing get_thing(const sf::Vector2i& vec) const {
@@ -307,9 +390,9 @@ public:
     MainWindow()
         : window(GVS, "Piterne te manna"),
           settings(IniDownloader("stngs.ini")),
-          player(settings.font, &window),
-          room(sf::Vector2i(8, 8), sf::Vector2i(1, 1), &player, &window),
-          peekingWindow(sf::Vector2i(200, 400), 10) {
+          player(settings.font, sf::Vector2i(window.getPosition().x - 256 + 8, window.getPosition().y)),
+          room(sf::Vector2i(8, 8), sf::Vector2i(1, 1), &player, sf::Vector2i(window.getPosition().x + window.getSize().x + 8, window.getPosition().y)),
+          peekingWindow(sf::Vector2i(200, 400), 10, "pics/conuct.png") {
         window.setFramerateLimit(30);
         monofont.loadFromFile(settings.font);
     }
@@ -322,12 +405,21 @@ public:
         }
     }
 
+    void loadSettings() {
+            settings = IniDownloader("stngs.ini");
+            window.create(sf::VideoMode(settings.width, settings.height), "Piterne te manna");
+            window.setFramerateLimit(settings.framerate_limit);
+            monofont.loadFromFile(settings.font);
+        }
+
 private:
     void handleEvents() {
         sf::Event event;
         while (window.pollEvent(event)) {
             if (event.type == sf::Event::Closed) {
                 window.close();
+                player.close_window();
+                room.close_window();
                 return;
             }
             room.handleEvent(event);
@@ -338,10 +430,12 @@ private:
         if (sf::Keyboard::isKeyPressed(sf::Keyboard::K)) {
             Screamer boo(1);
         }
+        if (sf::Keyboard::isKeyPressed(sf::Keyboard::P)) {
+        	peekingWindow.createWindow();
+		}
 
         peekingWindow.update();
         room.update();
-        player.render();
     }
 
     void render() {
@@ -355,10 +449,15 @@ private:
             window.draw(debugmap);
         }
 
-        room.render();
-        player.render();
-
         window.display();
+
+        if (player.is_window_open()) {
+            player.render();
+        }
+
+        if (room.is_window_open()) {
+            room.render();
+        }
 
         if (peekingWindow.isActive()) {
             peekingWindow.render();
